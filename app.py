@@ -1,12 +1,11 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Inventario Monte Carlo", layout="wide")
 
 # =========================
-# DATOS BASE
+# DATOS
 # =========================
 demanda = [40, 50, 60, 70, 80, 90]
 prob = [0.10, 0.20, 0.30, 0.25, 0.10, 0.05]
@@ -34,13 +33,12 @@ def simular(Q, dias, precio, costo, rescate, penal):
         U = utilidad(Q, D, precio, costo, rescate, penal)
         datos.append((D, U))
 
-    df = pd.DataFrame(datos, columns=["Demanda", "Utilidad"])
-    return df
+    return pd.DataFrame(datos, columns=["Demanda", "Utilidad"])
 
 # =========================
 # INTERFAZ
 # =========================
-st.title("🛒 Simulación Monte Carlo - Inventario")
+st.title("🛒 Inventario Monte Carlo")
 
 precio = st.sidebar.number_input("Precio venta", value=33)
 costo = st.sidebar.number_input("Costo compra", value=24)
@@ -58,17 +56,11 @@ resultados = []
 for Q in politicas:
     df = simular(Q, dias, precio, costo, rescate, penal)
 
-    utilidad_total = df["Utilidad"].sum()
-    utilidad_prom = df["Utilidad"].mean()
-    faltantes = (df["Demanda"] > Q).mean()
-    sobrantes = (df["Demanda"] < Q).mean()
-
     resultados.append({
         "Q": Q,
-        "Utilidad Total": utilidad_total,
-        "Utilidad Promedio": utilidad_prom,
-        "Prob Faltante": faltantes,
-        "Prob Sobrante": sobrantes
+        "Utilidad Promedio": df["Utilidad"].mean(),
+        "Prob Faltante": (df["Demanda"] > Q).mean(),
+        "Prob Sobrante": (df["Demanda"] < Q).mean()
     })
 
 df_res = pd.DataFrame(resultados)
@@ -83,28 +75,20 @@ mejor = df_res.loc[df_res["Utilidad Promedio"].idxmax()]
 st.success(f"Mejor política: Q = {int(mejor['Q'])}")
 
 # =========================
-# GRÁFICO UTILIDAD
+# GRÁFICOS SIN matplotlib
 # =========================
-fig, ax = plt.subplots()
-ax.bar(df_res["Q"], df_res["Utilidad Promedio"])
-ax.set_title("Utilidad promedio por política")
-st.pyplot(fig)
+st.subheader("📈 Utilidad promedio")
+st.bar_chart(df_res.set_index("Q")["Utilidad Promedio"])
+
+st.subheader("📉 Probabilidad de faltantes")
+st.bar_chart(df_res.set_index("Q")["Prob Faltante"])
 
 # =========================
-# GRÁFICO FALTANTES
+# DETALLE
 # =========================
-fig2, ax2 = plt.subplots()
-ax2.bar(df_res["Q"], df_res["Prob Faltante"])
-ax2.set_title("Probabilidad de faltantes")
-st.pyplot(fig2)
-
-# =========================
-# SIMULACIÓN DETALLADA
-# =========================
-st.subheader("📈 Evolución (política seleccionada)")
+st.subheader("📊 Evolución diaria")
 
 Q_sel = st.selectbox("Selecciona política", politicas)
-
 df_det = simular(Q_sel, dias, precio, costo, rescate, penal)
 
 st.line_chart(df_det["Utilidad"])
@@ -112,11 +96,12 @@ st.line_chart(df_det["Utilidad"])
 # =========================
 # INTERPRETACIÓN
 # =========================
-st.subheader("🧠 Interpretación automática")
+st.subheader("🧠 Interpretación")
 
 st.write("La mejor política equilibra faltantes y excedentes.")
 
 if mejor["Prob Faltante"] > 0.4:
     st.warning("Alta probabilidad de faltantes")
+
 if mejor["Prob Sobrante"] > 0.4:
     st.warning("Alta probabilidad de sobrantes")
